@@ -7,11 +7,11 @@ const cohere = new CohereClient({
 
 export const getEmbeddings = async (data: CleanedPayload | string): Promise<number[]> => {
     let stagedData: string;
-    
+
     if (typeof data === "string") {
         stagedData = data.trim();
     } else {
-        stagedData = (data.title + " " + data.tagTitles.join(" ")).trim();
+        stagedData = (data.title + " " + data.tagTitles.join(" ") + (data.description ? " " + data.description : "")).trim();
     }
 
     if (!stagedData) {

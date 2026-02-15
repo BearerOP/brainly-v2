@@ -21,10 +21,10 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
             return;
         }
         await ProcessTags(data.tags);
-        
+
         // Putting this over inserting in mongo because its less reliable
         await QdrantUpsertPoints(data)
-        
+
         await ContentModel.create({
             contentId: data.contentId,
             link: data.link,
@@ -33,7 +33,7 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
             tags: data.tags,
             createdAt: data.createdAt,
             // @ts-ignore
-            userId: req.userId, 
+            userId: req.userId,
         });
         res.status(200).json({
             content: {
@@ -57,10 +57,10 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
 // Get All Content
 ContentRouter.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
-        
+
         const allContent = await ContentModel.find({
-             // @ts-ignore
-            userId: req.userId, 
+            // @ts-ignore
+            userId: req.userId,
         })
             .populate("userId", "username")
             .populate("tags", "title");
@@ -90,8 +90,8 @@ ContentRouter.delete('/', authMiddleware, async (req: Request, res: Response) =>
 
         await ContentModel.deleteOne({
             contentId: contentId,
-             // @ts-ignore
-            userId: req.userId, 
+            // @ts-ignore
+            userId: req.userId,
         });
         await QdrantDelete(contentId)
         res.status(200).json({
@@ -129,7 +129,7 @@ ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
         const updatedContent = await ContentModel.findOneAndUpdate(
             {
                 contentId: contentId,
-                 // @ts-ignore
+                // @ts-ignore
                 userId: req.userId,
             },
             {
@@ -162,7 +162,7 @@ ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
     }
 });
 
-ContentRouter.post('/search', authMiddleware, async(req,res) => {
+ContentRouter.post('/search', authMiddleware, async (req, res) => {
     try {
         const searchQuery = req.body.search
         if (!searchQuery) {
@@ -172,10 +172,30 @@ ContentRouter.post('/search', authMiddleware, async(req,res) => {
             return;
         }
         const queryEmbeddings = await getEmbeddings(searchQuery)
-        const response = await QdrantSearch(queryEmbeddings)
+        const qdrantIds = await QdrantSearch(queryEmbeddings) as string[];
+
+        // Fetch full content from MongoDB using the IDs
+        const documents = await ContentModel.find({
+            contentId: { $in: qdrantIds }
+        });
+
+        // Reorder results to match Qdrant's relevance order and format for frontend
+        const searchResults = qdrantIds.map(id => {
+            const doc = documents.find(d => d.contentId === id);
+            if (!doc) return null;
+            return {
+                contentId: doc.contentId,
+                title: doc.title,
+                link: doc.link,
+                type: doc.type,
+                tags: doc.tags,
+                createdAt: doc.createdAt
+            };
+        }).filter(Boolean);
+
         res.status(200).json({
-            search: response || []
-        })
+            search: searchResults || []
+        });
     } catch (e) {
         console.error("Error searching content:", e);
         res.status(500).json({

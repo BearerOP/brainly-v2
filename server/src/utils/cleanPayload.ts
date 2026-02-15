@@ -4,9 +4,10 @@ export type CleanedPayload = {
     title: string;
     contentId: string;
     tagTitles: string[];
+    description?: string;
 };
 export const cleanPayload = (data: ContentType): CleanedPayload => {
-    const { title, tags, contentId } = data;
+    const { title, tags, contentId, metadata } = data;
 
     // Extract only tag titles
     const tagTitles = tags.map(tag => tag.title);
@@ -15,5 +16,6 @@ export const cleanPayload = (data: ContentType): CleanedPayload => {
         title,
         contentId,
         tagTitles,
+        description: metadata?.description,
     };
 };

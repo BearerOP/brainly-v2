@@ -6,10 +6,14 @@ mongoose.connect(process.env.MONGO_URL!);
 
 const UserSchema = new Schema({
   username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  email: { type: String, unique: true, sparse: true },
+  password: { type: String },
+  googleId: { type: String, unique: true, sparse: true },
+  refreshToken: { type: String },
+  supabaseId: { type: String, unique: true, sparse: true }
 });
 
-export const contentTypes = ["image", "video", "article", "audio"] as const;
+export const contentTypes = ["image", "video", "article", "audio", "product", "youtube", "social", "link"] as const;
 const ContentSchema = new Schema({
   link: {
     type: String,
@@ -32,6 +36,11 @@ const ContentSchema = new Schema({
   userId: { type: Types.ObjectId, ref: "Users", required: true },
   contentId: { type: String, required: true, unique: true },
   createdAt: { type: String },
+  metadata: {
+    thumbnail: String,
+    favicon: String,
+    description: String,
+  },
 });
 
 const TagSchema = new Schema({

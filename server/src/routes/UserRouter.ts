@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import crypto from "crypto";
 import { AuthSchema } from "../types/Schemas";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -60,6 +61,12 @@ UserRouter.post("/login", async (req: Request, res: Response) => {
         username: data.username,
       });
       if (existingUser) {
+        if (!existingUser.password) {
+          res.status(401).json({
+            message: "This account uses Google login. Please sign in with Google.",
+          });
+          return;
+        }
         const match = await bcrypt.compare(
           data.password,
           existingUser.password
@@ -95,5 +102,30 @@ UserRouter.post("/login", async (req: Request, res: Response) => {
       message: "Internal Server Error",
     });
     return;
+  }
+});
+
+UserRouter.post("/supabase-auth", async (req: Request, res: Response) => {
+  try {
+    const { email, supabaseId } = req.body;
+
+    let user = await UsersModel.findOne({ username: email });
+
+    if (!user) {
+      // Auto-create user from Supabase auth
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const hashPass = await bcrypt.hash(randomPassword, salt_rounds);
+      user = await UsersModel.create({
+        username: email,
+        password: hashPass,
+        supabaseId: supabaseId
+      });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!);
+    res.json({ token });
+  } catch (error) {
+    console.error("Auth sync failed", error);
+    res.status(500).json({ message: "Auth sync failed" });
   }
 });
