@@ -10,7 +10,6 @@ const UserSchema = new Schema({
   password: { type: String },
   googleId: { type: String, unique: true, sparse: true },
   refreshToken: { type: String },
-  supabaseId: { type: String, unique: true, sparse: true }
 });
 
 export const contentTypes = ["image", "video", "article", "audio", "product", "youtube", "social", "link"] as const;
