@@ -35,6 +35,7 @@ const ContentSchema = new Schema({
   userId: { type: Types.ObjectId, ref: "Users", required: true },
   contentId: { type: String, required: true, unique: true },
   createdAt: { type: String },
+  position: { type: Number, default: 0 },
   metadata: {
     thumbnail: String,
     favicon: String,
@@ -58,6 +59,7 @@ const ContentSchema = new Schema({
     sentiment: String,
     source_specific: { type: Schema.Types.Mixed, default: {} },
     embedding_text: String,
+    preview_image: String,
   },
 });
 

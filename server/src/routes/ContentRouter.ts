@@ -3,9 +3,7 @@ import { authMiddleware } from "../middleware/authMiddleware";
 import { ContentSchema } from "../types/Schemas";
 import { ContentModel, TagsModel } from "../db/db";
 import { ProcessTags } from "../utils/ProcessTag";
-
 import { QdrantDelete, QdrantSearch, QdrantUpsertPoints } from "../utils/QdrantProcessing";
-import { getEmbeddings } from "../utils/TextEmbeddings";
 
 export const ContentRouter = Router();
 
@@ -22,8 +20,12 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
         }
         await ProcessTags(data.tags);
 
-        // Putting this over inserting in mongo because its less reliable
-        await QdrantUpsertPoints(data)
+        // Upsert to Qdrant first with userId for per-user filtering
+        await QdrantUpsertPoints(data, req.userId)
+
+        // Get max position for this user to append at the end
+        const maxContent = await ContentModel.findOne({ userId: req.userId }).sort({ position: -1 });
+        const position = maxContent ? maxContent.position + 1 : 0;
 
         await ContentModel.create({
             contentId: data.contentId,
@@ -32,9 +34,9 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
             title: data.title,
             tags: data.tags,
             createdAt: data.createdAt,
+            position,
             metadata: data.metadata,
             extractedMetadata: data.extractedMetadata,
-            // @ts-ignore
             userId: req.userId,
         });
         res.status(200).json({
@@ -61,9 +63,9 @@ ContentRouter.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
 
         const allContent = await ContentModel.find({
-            // @ts-ignore
             userId: req.userId,
         })
+            .sort({ position: 1 }) // Use position for manual order
             .populate("userId", "username")
             .populate("tags", "title");
 
@@ -92,7 +94,6 @@ ContentRouter.delete('/', authMiddleware, async (req: Request, res: Response) =>
 
         await ContentModel.deleteOne({
             contentId: contentId,
-            // @ts-ignore
             userId: req.userId,
         });
         await QdrantDelete(contentId)
@@ -131,7 +132,6 @@ ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
         const updatedContent = await ContentModel.findOneAndUpdate(
             {
                 contentId: contentId,
-                // @ts-ignore
                 userId: req.userId,
             },
             {
@@ -151,7 +151,8 @@ ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
             return;
         }
 
-        await QdrantUpsertPoints(data)
+        // @ts-ignore
+        await QdrantUpsertPoints(data, req.userId)
         res.status(200).json({
             message: "Content updated successfully",
             updatedContent,
@@ -165,17 +166,48 @@ ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
     }
 });
 
+// Batch update positions for reordering
+ContentRouter.put('/reorder', authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const { positions } = req.body; // Array of { contentId, position }
+
+        if (!Array.isArray(positions)) {
+            res.status(400).json({ message: "Positions array is required" });
+            return;
+        }
+
+        const bulkOps = positions.map((p: any) => ({
+            updateOne: {
+                filter: {
+                    contentId: p.contentId,
+                    userId: req.userId
+                },
+                update: { $set: { position: p.position } }
+            }
+        }));
+
+        await ContentModel.bulkWrite(bulkOps);
+
+        res.status(200).json({ message: "Order updated successfully" });
+    } catch (e) {
+        console.error("Error reordering content:", e);
+        res.status(500).json({
+            message: "Internal Server Error",
+            error: e,
+        });
+    }
+});
+
 ContentRouter.post('/search', authMiddleware, async (req, res) => {
     try {
         const searchQuery = req.body.search
         if (!searchQuery) {
-            res.status(400).json({
-                message: "Search query is required",
-            });
+            res.status(400).json({ message: "Search query is required" });
             return;
         }
-        const queryEmbeddings = await getEmbeddings(searchQuery)
-        const qdrantIds = await QdrantSearch(queryEmbeddings) as string[];
+
+        // Pass raw string + userId — QdrantSearch handles embedding with correct inputType
+        const qdrantIds = await QdrantSearch(searchQuery, req.userId) as string[];
 
         // Fetch full content from MongoDB using the IDs
         const documents = await ContentModel.find({
@@ -192,7 +224,8 @@ ContentRouter.post('/search', authMiddleware, async (req, res) => {
                 link: doc.link,
                 type: doc.type,
                 tags: doc.tags,
-                createdAt: doc.createdAt
+                createdAt: doc.createdAt,
+                extractedMetadata: doc.extractedMetadata,
             };
         }).filter(Boolean);
 

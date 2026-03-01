@@ -26,6 +26,7 @@ export const ContentSchema = z.object({
     tags: z.array(tagSchema),
     contentId: z.string(),
     createdAt: z.string(),
+    position: z.number().optional().default(0),
     metadata: z.object({
         thumbnail: z.string().optional(),
         favicon: z.string().optional(),
@@ -49,6 +50,7 @@ export const ContentSchema = z.object({
         sentiment: z.string().optional(),
         source_specific: z.record(z.unknown()).optional(),
         embedding_text: z.string().optional(),
+        preview_image: z.string().nullable().optional(),
     }).optional()
 })
 

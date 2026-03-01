@@ -5,7 +5,10 @@ const cohere = new CohereClient({
     token: process.env.COHERE_API_KEY
 })
 
-export const getEmbeddings = async (data: CleanedPayload | string): Promise<number[]> => {
+export const getEmbeddings = async (
+    data: CleanedPayload | string,
+    inputType: 'search_document' | 'search_query' = 'search_document'
+): Promise<number[]> => {
     let stagedData: string;
 
     if (typeof data === "string") {
@@ -14,7 +17,13 @@ export const getEmbeddings = async (data: CleanedPayload | string): Promise<numb
         // Use AI-generated embedding_text for richer semantic search
         stagedData = data.embeddingText.trim();
     } else {
-        stagedData = (data.title + " " + data.tagTitles.join(" ") + (data.description ? " " + data.description : "")).trim();
+        // Fallback: compose from all available fields for better coverage
+        const parts = [
+            data.title,
+            data.tagTitles.join(' '),
+            data.description,
+        ].filter(Boolean);
+        stagedData = parts.join(' ').trim();
     }
 
     if (!stagedData) {
@@ -23,7 +32,7 @@ export const getEmbeddings = async (data: CleanedPayload | string): Promise<numb
     try {
         const embed = await cohere.v2.embed({
             model: 'embed-english-v3.0',
-            inputType: 'search_document',
+            inputType,
             embeddingTypes: ['float'],
             texts: [stagedData],
         });
@@ -35,3 +44,4 @@ export const getEmbeddings = async (data: CleanedPayload | string): Promise<numb
         throw new Error(`Error in getEmbeddings: ${error}`);
     }
 };
+

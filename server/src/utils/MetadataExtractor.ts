@@ -1,6 +1,8 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export interface ExtractInput {
     url?: string;
@@ -8,6 +10,8 @@ export interface ExtractInput {
     user_tags?: string[];
     user_notes?: string;
     fetched_content?: string;
+    image_base64?: string;
+    image_mime_type?: string;
 }
 
 export interface EntityItem {
@@ -40,6 +44,7 @@ export interface ExtractedMetadata {
     source_specific: Record<string, unknown>;
     // Embedding (internal use)
     embedding_text: string;
+    preview_image?: string | null;
     // Which fields the user can edit
     _editable: Record<string, boolean>;
 }
@@ -58,14 +63,13 @@ const EXTRACTION_PROMPT = `You are a universal content intelligence agent. Your 
 
 ## YOUR TASK
 
-Analyze everything provided and extract structured metadata.
+Analyze everything provided (including the image if attached) and extract structured metadata.
 
 Important rules:
-- User-provided tags and notes are ground truth — treat them as high-confidence signals about what this resource is about
-- Merge user tags with your own inferred tags, do not drop user tags
-- If user_notes exist, factor them heavily into your summary and topics
-- All fields you return will be shown to the user for review and editing — keep values clean, readable, and concise
-- Avoid technical jargon in field values unless the content itself is technical
+- If an image is provided: Perform OCR to extract visible text and analyze visual elements (charts, people, mood).
+- User-provided tags and notes are ground truth — treat them as high-confidence signals.
+- Merge user tags with your own inferred tags, do not drop user tags.
+- All fields you return will be shown to the user for review and editing — keep values clean and concise.
 
 ## OUTPUT
 
@@ -74,59 +78,42 @@ Return a valid JSON object with exactly these fields:
 ### Identity
 - title: Best title for this resource (string, never null)
 - source_type: One of: article | blog | video | image | social_post | tweet | reel | pdf | note | product | research_paper | news | podcast | other
-- platform: Platform or site name (e.g. YouTube, X, Medium, Reddit, unknown)
+- platform: Platform or site name (e.g. YouTube, X, Medium, Reddit, Upload, unknown)
 - author: Author or creator name (string or null)
 - published_date: Publication date in YYYY-MM-DD format if detectable (or null)
 - language: Language of the content (e.g. "English")
 
 ### Content
-- summary: 2-4 sentence neutral summary of what this resource is and why it matters
+- summary: 2-4 sentence neutral summary of what this resource is. For images, describe what is happening or what the document contains.
 - main_topic: Single sentence describing the core subject
-- key_points: Array of 3-8 key insights, facts, or takeaways (strings)
-- content_snippet: 1-2 sentence excerpt or paraphrase suitable for showing in a search result card
+- key_points: Array of 3-8 key insights or text extracted via OCR (strings)
+- content_snippet: 1-2 sentence excerpt suitable for a search card
 
 ### Classification
-- tags: Merged array of user-provided tags + your inferred tags (10-20 total, deduplicated, lowercase, no special chars)
+- tags: Merged array of user-provided tags + your inferred tags (10-20 total, lowercase)
 - categories: Broad categories max 3 (e.g. Technology, Health, Finance, Science, Lifestyle)
-- topics: Specific subject areas covered (5-15 items, more granular than categories)
-- entities: Named entities as array of {name, type} where type is one of: person|company|product|place|event|tool|other
-- keywords: 10-20 high-signal search keywords and phrases
+- topics: Specific subject areas covered
+- entities: Named entities {name, type} where type is: person|company|product|place|event|tool|other
+- keywords: 10-20 search keywords
 - intent: One of: educational | opinion | tutorial | news | research | entertainment | promotional | other
 - sentiment: One of: positive | negative | neutral | mixed
 
 ### Source-specific
 - source_specific: Object with relevant extra fields based on source_type:
+  - image: { visual_description, text_in_image, mood, orientation, resolution_hint }
   - video: { duration, channel_name, transcript_summary }
-  - social_post/tweet: { post_text, hashtags, mentions, media_type }
-  - image: { visual_description, text_in_image, mood }
-  - article/blog: { reading_time_minutes, has_code, has_data_or_stats }
-  - research_paper: { abstract, methodology, findings }
-  - podcast: { episode_title, guest_names, episode_number }
+  - article: { reading_time_minutes, has_code, has_data_stats }
 
 ### Embedding
-- embedding_text: Dense 200-500 word natural language block combining all key information. Weave in title, summary, topics, key points, entities, and keywords. Optimized for semantic similarity search. Write as coherent prose, not a list. Think like a librarian indexing this for the world's best search engine.
+- embedding_text: Dense 200-500 word natural language block. Weave in title, summary, topics, and OCR text. Optimized for semantic search.
 
 ### Editable hints
-- _editable: Object mapping field names to booleans indicating user-editability:
-  { "title": true, "summary": true, "main_topic": true, "key_points": true, "tags": true, "categories": true, "topics": true, "author": true, "published_date": true, "sentiment": true, "intent": true, "entities": true, "content_snippet": true, "source_type": true, "platform": false, "language": false, "keywords": false, "embedding_text": false }
+- _editable: { "title": true, "summary": true, "main_topic": true, "key_points": true, "tags": true, "categories": true, "topics": true, "author": true, "published_date": true, "sentiment": true, "intent": true, "entities": true, "content_snippet": true, "source_type": true, "platform": false, "language": false, "keywords": false, "embedding_text": false }
 
 ## GUIDELINES
-
-- Never return null for title, summary, tags, topics, or embedding_text — always generate a best guess
-- If the URL is inaccessible or fetched_content is empty, infer what you can from URL structure, domain, and path
-- embedding_text should be written as if a librarian is describing this resource — maximize semantic coverage
-- Think about what terms a user would type 6 months from now trying to rediscover this resource
-- Return only valid JSON — no markdown fences, no explanation outside the JSON`;
+- Return only valid JSON. No markdown fences.`;
 
 export const extractMetadata = async (input: ExtractInput): Promise<ExtractedMetadata> => {
-    const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-        },
-    });
-
     const userInput = JSON.stringify({
         url: input.url ?? null,
         raw_content: input.raw_content ?? null,
@@ -137,10 +124,78 @@ export const extractMetadata = async (input: ExtractInput): Promise<ExtractedMet
 
     const prompt = `${EXTRACTION_PROMPT}\n\n## INPUT\n\n${userInput}`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    // Try Gemini first
+    try {
+        console.log('[MetadataExtractor] Attempting extraction with Gemini...');
+        if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY missing');
 
-    // Parse JSON — Gemini with responseMimeType=json should return clean JSON
-    const parsed: ExtractedMetadata = JSON.parse(text);
-    return parsed;
+        // Note: Using 2.0-flash for reliability
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.0-flash',
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.2,
+            },
+        });
+
+        const parts: any[] = [{ text: prompt }];
+        if (input.image_base64 && input.image_mime_type) {
+            parts.push({
+                inlineData: {
+                    data: input.image_base64,
+                    mimeType: input.image_mime_type
+                }
+            });
+        }
+
+        const result = await model.generateContent(parts);
+        const text = result.response.text();
+        return JSON.parse(text);
+
+    } catch (geminiError) {
+        console.error('[MetadataExtractor] Gemini failed, falling back to Groq:', geminiError);
+
+        if (!process.env.GROQ_API_KEY) {
+            throw new Error('Both Gemini and Groq providers failed or are unconfigured.');
+        }
+
+        try {
+            console.log('[MetadataExtractor] Attempting extraction with Groq (Llama 3.2 Vision)...');
+
+            const messages: any[] = [
+                { role: 'system', content: 'You are a metadata extraction expert. Return only valid JSON.' }
+            ];
+
+            if (input.image_base64 && input.image_mime_type) {
+                messages.push({
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: prompt },
+                        {
+                            type: 'image_url',
+                            image_url: { url: `data:${input.image_mime_type};base64,${input.image_base64}` }
+                        }
+                    ]
+                });
+            } else {
+                messages.push({ role: 'user', content: prompt });
+            }
+
+            const completion = await groq.chat.completions.create({
+                messages,
+                model: input.image_base64 ? 'llama-3.2-90b-vision-preview' : 'llama-3.3-70b-versatile',
+                response_format: { type: 'json_object' },
+                temperature: 0.2,
+            });
+
+            const content = completion.choices[0]?.message?.content;
+            if (!content) throw new Error('Groq returned empty content');
+
+            return JSON.parse(content);
+
+        } catch (groqError) {
+            console.error('[MetadataExtractor] Groq also failed:', groqError);
+            throw groqError;
+        }
+    }
 };

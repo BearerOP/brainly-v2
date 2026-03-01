@@ -8,8 +8,7 @@ export const BrainRouter = Router()
 BrainRouter.post("/share", authMiddleware, async (req: Request, res: Response) => {
     try {
         const shareLink: boolean = req.body.share;
-        // @ts-ignore
-        const userId = req.userId;
+        const userId = req.userId as string;
 
         const content = await ContentModel.findOne({ userId });
 
@@ -21,7 +20,7 @@ BrainRouter.post("/share", authMiddleware, async (req: Request, res: Response) =
         }
 
         if (shareLink) {
-            const hash = crypto.createHash("sha256").update(userId + Date.now()).digest("hex");
+            const hash = crypto.createHash("sha256").update(userId! + Date.now()).digest("hex");
 
             const linkCreated = await LinksModel.findOneAndUpdate(
                 { userId },
@@ -41,8 +40,8 @@ BrainRouter.post("/share", authMiddleware, async (req: Request, res: Response) =
                 message: "Share link has been disabled.",
             });
             return;
-        } 
-        
+        }
+
     } catch (e) {
         console.error("Error in /share:", e);
         res.status(500).json({
@@ -51,32 +50,32 @@ BrainRouter.post("/share", authMiddleware, async (req: Request, res: Response) =
     }
 });
 
-BrainRouter.get("/:shareLink", async(req:Request, res:Response)  => {
+BrainRouter.get("/:shareLink", async (req: Request, res: Response) => {
     const shareLink = req.params.shareLink;
-    try{
+    try {
         const collectionLink = await LinksModel.findOne({ hash: shareLink })
-        if(!collectionLink){
+        if (!collectionLink) {
             res.status(404).json({
                 message: "Could not find the collection"
             })
-            return ;
-        } else{
+            return;
+        } else {
             const content = await ContentModel.find({
                 userId: collectionLink.userId.toString()
             })
-            .populate('tags', 'title')
-            .populate('userId', 'username')
+                .populate('tags', 'title')
+                .populate('userId', 'username')
 
             res.status(200).json({
-                content, 
+                content,
                 shareLink
             })
-            return; 
+            return;
         }
-    } catch(e){
+    } catch (e) {
         res.status(500).json({
             message: "Internal Server Errror in /:shareLink"
         })
-        return ;
+        return;
     }
 })

@@ -15,7 +15,8 @@ const app = express()
 app.use(cors({
     origin: ['https://secondbrain-fe.vercel.app', 'http://localhost:5173', 'http://localhost:8080', 'http://localhost:4173', 'https://id-preview--fac48524-3e2f-4c80-94c6-2f03bdf252c4.lovable.app']
 }))
-app.use(express.json())
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 app.use('/v1/user', UserRouter)
 app.use('/v1/content', ContentRouter)
 app.use('/v1/brain', BrainRouter)
