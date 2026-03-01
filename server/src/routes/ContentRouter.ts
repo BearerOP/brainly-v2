@@ -32,6 +32,8 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
             title: data.title,
             tags: data.tags,
             createdAt: data.createdAt,
+            metadata: data.metadata,
+            extractedMetadata: data.extractedMetadata,
             // @ts-ignore
             userId: req.userId,
         });
@@ -137,6 +139,7 @@ ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
                 type: data.type,
                 title: data.title,
                 tags: data.tags,
+                extractedMetadata: data.extractedMetadata,
             },
             { new: true }
         );

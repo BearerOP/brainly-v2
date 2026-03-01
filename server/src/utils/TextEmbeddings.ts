@@ -10,6 +10,9 @@ export const getEmbeddings = async (data: CleanedPayload | string): Promise<numb
 
     if (typeof data === "string") {
         stagedData = data.trim();
+    } else if (data.embeddingText) {
+        // Use AI-generated embedding_text for richer semantic search
+        stagedData = data.embeddingText.trim();
     } else {
         stagedData = (data.title + " " + data.tagTitles.join(" ") + (data.description ? " " + data.description : "")).trim();
     }

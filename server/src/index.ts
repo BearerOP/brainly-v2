@@ -4,6 +4,7 @@ import { UserRouter } from './routes/UserRouter'
 import { ContentRouter } from './routes/ContentRouter'
 import { BrainRouter } from './routes/BrainRouter'
 import { GoogleAuthRouter } from './routes/GoogleAuthRouter'
+import { ExtractRouter } from './routes/ExtractRouter'
 import cors from 'cors'
 dotenv.config()
 
@@ -19,6 +20,7 @@ app.use('/v1/user', UserRouter)
 app.use('/v1/content', ContentRouter)
 app.use('/v1/brain', BrainRouter)
 app.use('/api/auth', GoogleAuthRouter)
+app.use('/v1/extract', ExtractRouter)
 
 app.get('/', (req, res) => {
     res.status(200).json({

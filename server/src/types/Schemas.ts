@@ -30,6 +30,25 @@ export const ContentSchema = z.object({
         thumbnail: z.string().optional(),
         favicon: z.string().optional(),
         description: z.string().optional(),
+    }).optional(),
+    extractedMetadata: z.object({
+        summary: z.string().optional(),
+        main_topic: z.string().optional(),
+        key_points: z.array(z.string()).optional(),
+        content_snippet: z.string().optional(),
+        source_type: z.string().optional(),
+        platform: z.string().optional(),
+        author: z.string().nullable().optional(),
+        published_date: z.string().nullable().optional(),
+        language: z.string().optional(),
+        categories: z.array(z.string()).optional(),
+        topics: z.array(z.string()).optional(),
+        entities: z.array(z.object({ name: z.string(), type: z.string() })).optional(),
+        keywords: z.array(z.string()).optional(),
+        intent: z.string().optional(),
+        sentiment: z.string().optional(),
+        source_specific: z.record(z.unknown()).optional(),
+        embedding_text: z.string().optional(),
     }).optional()
 })
 

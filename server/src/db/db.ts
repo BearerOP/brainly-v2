@@ -40,6 +40,25 @@ const ContentSchema = new Schema({
     favicon: String,
     description: String,
   },
+  extractedMetadata: {
+    summary: String,
+    main_topic: String,
+    key_points: [String],
+    content_snippet: String,
+    source_type: String,
+    platform: String,
+    author: String,
+    published_date: String,
+    language: String,
+    categories: [String],
+    topics: [String],
+    entities: { type: Schema.Types.Mixed, default: [] },
+    keywords: [String],
+    intent: String,
+    sentiment: String,
+    source_specific: { type: Schema.Types.Mixed, default: {} },
+    embedding_text: String,
+  },
 });
 
 const TagSchema = new Schema({
