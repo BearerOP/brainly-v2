@@ -8,6 +8,7 @@ dist/
 build/
 *.js.map
 
+
 # Environment variables
 .env
 .env.local
@@ -15,6 +16,7 @@ build/
 .env.test.local
 .env.production.local
 .env*.local
+.env.production
 
 # Logs
 logs
