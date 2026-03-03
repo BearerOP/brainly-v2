@@ -12,7 +12,6 @@ const salt_rounds = 10;
 mongoose.connect(process.env.MONGO_URL!);
 export const UserRouter = Router();
 
-// Signup and Signin Endpoints
 
 UserRouter.post("/register", async (req: Request, res: Response) => {
   try {
@@ -79,7 +78,6 @@ UserRouter.post("/login", async (req: Request, res: Response) => {
               id: existingUser._id,
             },
             process.env.JWT_SECRET! as string
-            // {expiresIn: '1h'}
           );
           res.status(200).json({
             message: "Login Succesful, token set",
@@ -116,7 +114,6 @@ UserRouter.post("/supabase-auth", async (req: Request, res: Response) => {
     let user = await UsersModel.findOne({ username: email });
 
     if (!user) {
-      // Auto-create user from Supabase auth
       const randomPassword = crypto.randomBytes(32).toString('hex');
       const hashPass = await bcrypt.hash(randomPassword, salt_rounds);
       user = await UsersModel.create({

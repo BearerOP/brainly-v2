@@ -10,10 +10,6 @@ const s3Client = new S3Client({
     },
 });
 
-/**
- * Downloads an image from a URL and uploads it to S3.
- * Returns the public S3 URL.
- */
 export async function uploadImageFromUrl(imageUrl: string): Promise<string | null> {
     if (!imageUrl) return null;
 
@@ -27,7 +23,6 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<string | nul
         const buffer = Buffer.from(await response.arrayBuffer());
         const contentType = response.headers.get("content-type") || "image/jpeg";
 
-        // Generate a unique filename
         const extension = path.extname(new URL(imageUrl).pathname) || ".jpg";
         const fileName = `${uuidv4()}${extension}`;
         const bucket = process.env.AWS_S3_BUCKET || "querysecondbrain";
@@ -44,7 +39,6 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<string | nul
             })
         );
 
-        // Construct the public URL
         const region = process.env.AWS_REGION || "ap-south-1";
         const encodedKey = key.split('/').map(segment => encodeURIComponent(segment)).join('/');
         const publicUrl = `https://${bucket}.s3.${region}.amazonaws.com/${encodedKey}`;
@@ -58,10 +52,6 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<string | nul
     }
 }
 
-/**
- * Uploads an image from a base64 string directly to S3.
- * Returns the public S3 URL.
- */
 export async function uploadImageFromBase64(base64Data: string, mimeType: string): Promise<string | null> {
     if (!base64Data) return null;
 
@@ -73,7 +63,6 @@ export async function uploadImageFromBase64(base64Data: string, mimeType: string
 
         const buffer = Buffer.from(base64Content, 'base64');
 
-        // Generate a unique filename
         const extension = mimeType.split('/')[1] || "jpg";
         const fileName = `${uuidv4()}.${extension}`;
         const bucket = process.env.AWS_S3_BUCKET || "querysecondbrain";

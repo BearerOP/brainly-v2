@@ -6,11 +6,6 @@ import { uploadImageFromUrl, uploadImageFromBase64 } from "../utils/S3Uploader";
 
 export const ExtractRouter = Router();
 
-/**
- * POST /v1/extract
- * Preview-only: Accepts a resource input (URL, text, or image), 
- * runs AI extraction, and returns structured metadata.
- */
 ExtractRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const { url, raw_content, user_tags, user_notes, base64_image, image_mime_type } = req.body;
@@ -25,7 +20,6 @@ ExtractRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
         let fetched_content = '';
         let preview_image: string | null = null;
 
-        // Step 1: Handle URL-based content
         if (url) {
             console.log(`[ExtractRouter] Fetching content from: ${url}`);
             const result = await fetchUrlContent(url);
@@ -38,7 +32,6 @@ ExtractRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
             }
         }
 
-        // Step 2: Handle Direct Image Upload
         if (base64_image && image_mime_type) {
             console.log(`[ExtractRouter] Direct image upload detected. MimeType: ${image_mime_type}`);
             const s3Url = await uploadImageFromBase64(base64_image, image_mime_type);
@@ -46,7 +39,6 @@ ExtractRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
                 preview_image = s3Url;
             }
         } else if (preview_image) {
-            // Persist the OG image to S3 if it was found via URL
             console.log(`[ExtractRouter] Persisting OG image to S3: ${preview_image}`);
             const s3Url = await uploadImageFromUrl(preview_image);
             if (s3Url) {
@@ -54,7 +46,6 @@ ExtractRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
             }
         }
 
-        // Step 3: Build input and call AI extraction agent
         const input: ExtractInput = {
             url: url ?? undefined,
             raw_content: raw_content ?? undefined,
@@ -68,12 +59,10 @@ ExtractRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
         console.log(`[ExtractRouter] Running extraction agent...`);
         const metadata = await extractMetadata(input);
 
-        // Step 4: Finalize metadata
         if (preview_image) {
             (metadata as any).preview_image = preview_image;
         }
 
-        // If it was a direct image upload, default source_type to 'image' if AI didn't catch it
         if (base64_image && !metadata.source_type) {
             metadata.source_type = 'image';
         }

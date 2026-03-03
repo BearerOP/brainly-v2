@@ -20,19 +20,16 @@ export interface EntityItem {
 }
 
 export interface ExtractedMetadata {
-    // Identity
     title: string;
     source_type: string;
     platform: string;
     author: string | null;
     published_date: string | null;
     language: string;
-    // Content
     summary: string;
     main_topic: string;
     key_points: string[];
     content_snippet: string;
-    // Classification
     tags: string[];
     categories: string[];
     topics: string[];
@@ -40,12 +37,9 @@ export interface ExtractedMetadata {
     keywords: string[];
     intent: string;
     sentiment: string;
-    // Source-specific extra fields
     source_specific: Record<string, unknown>;
-    // Embedding (internal use)
     embedding_text: string;
     preview_image?: string | null;
-    // Which fields the user can edit
     _editable: Record<string, boolean>;
 }
 
@@ -124,12 +118,10 @@ export const extractMetadata = async (input: ExtractInput): Promise<ExtractedMet
 
     const prompt = `${EXTRACTION_PROMPT}\n\n## INPUT\n\n${userInput}`;
 
-    // Try Gemini first
     try {
         console.log('[MetadataExtractor] Attempting extraction with Gemini...');
         if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY missing');
 
-        // Note: Using 2.0-flash for reliability
         const model = genAI.getGenerativeModel({
             model: 'gemini-2.0-flash',
             generationConfig: {

@@ -7,7 +7,6 @@ import { QdrantDelete, QdrantSearch, QdrantUpsertPoints } from "../utils/QdrantP
 
 export const ContentRouter = Router();
 
-// Add New Content
 ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const { success, data, error } = ContentSchema.safeParse(req.body);
@@ -20,10 +19,8 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
         }
         await ProcessTags(data.tags);
 
-        // Upsert to Qdrant first with userId for per-user filtering
         await QdrantUpsertPoints(data, req.userId)
 
-        // Get max position for this user to append at the end
         const maxContent = await ContentModel.findOne({ userId: req.userId }).sort({ position: -1 });
         const position = maxContent ? maxContent.position + 1 : 0;
 
@@ -58,14 +55,12 @@ ContentRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
     }
 });
 
-// Get All Content
 ContentRouter.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
 
         const allContent = await ContentModel.find({
             userId: req.userId,
         })
-            .sort({ position: 1 }) // Use position for manual order
             .populate("userId", "username")
             .populate("tags", "title");
 
@@ -80,7 +75,6 @@ ContentRouter.get('/', authMiddleware, async (req: Request, res: Response) => {
     }
 });
 
-// Delete a document
 ContentRouter.delete('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const contentId = req.body.contentId;
@@ -108,7 +102,6 @@ ContentRouter.delete('/', authMiddleware, async (req: Request, res: Response) =>
     }
 });
 
-// Update a document
 ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const { success, data, error } = ContentSchema.safeParse(req.body);
@@ -166,10 +159,9 @@ ContentRouter.put('/', authMiddleware, async (req: Request, res: Response) => {
     }
 });
 
-// Batch update positions for reordering
 ContentRouter.put('/reorder', authMiddleware, async (req: Request, res: Response) => {
     try {
-        const { positions } = req.body; // Array of { contentId, position }
+        const { positions } = req.body;
 
         if (!Array.isArray(positions)) {
             res.status(400).json({ message: "Positions array is required" });
@@ -206,15 +198,12 @@ ContentRouter.post('/search', authMiddleware, async (req, res) => {
             return;
         }
 
-        // Pass raw string + userId — QdrantSearch handles embedding with correct inputType
         const qdrantIds = await QdrantSearch(searchQuery, req.userId) as string[];
 
-        // Fetch full content from MongoDB using the IDs
         const documents = await ContentModel.find({
             contentId: { $in: qdrantIds }
         });
 
-        // Reorder results to match Qdrant's relevance order and format for frontend
         const searchResults = qdrantIds.map(id => {
             const doc = documents.find(d => d.contentId === id);
             if (!doc) return null;

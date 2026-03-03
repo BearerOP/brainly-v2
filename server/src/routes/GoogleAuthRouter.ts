@@ -14,17 +14,15 @@ const client = new OAuth2Client(
 
 export const GoogleAuthRouter = Router();
 
-// Redirect to Google Consent Screen
 GoogleAuthRouter.get("/google", (req, res) => {
     const url = client.generateAuthUrl({
-        access_type: "offline", // Required to get refresh token
+        access_type: "offline",
         scope: ["profile", "email"],
         prompt: "consent"
     });
     res.redirect(url);
 });
 
-// Handle Google Callback
 GoogleAuthRouter.get("/callback/google", (req, res) => {
     (async () => {
         const { code } = req.query;
@@ -50,7 +48,6 @@ GoogleAuthRouter.get("/callback/google", (req, res) => {
             let user = await UsersModel.findOne({ googleId });
 
             if (!user) {
-                // Check if user exists with same email but different login method
                 user = await UsersModel.findOne({ email });
                 if (user) {
                     console.log(`[GoogleAuth] Linking Google account to existing user: ${email}`);
@@ -62,10 +59,8 @@ GoogleAuthRouter.get("/callback/google", (req, res) => {
                     let baseUsername = name || email?.split('@')[0] || "user";
                     let username = baseUsername;
 
-                    // Check if username is already taken
                     const existingUsername = await UsersModel.findOne({ username });
                     if (existingUsername) {
-                        // Append unique suffix if taken
                         username = `${baseUsername}_${Math.random().toString(36).substring(2, 7)}`;
                     }
 
@@ -97,7 +92,6 @@ GoogleAuthRouter.get("/callback/google", (req, res) => {
     })();
 });
 
-// Refresh token endpoint
 GoogleAuthRouter.post("/refresh", (req, res) => {
     (async () => {
         const { refreshToken } = req.body;
