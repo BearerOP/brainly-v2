@@ -41,7 +41,6 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<string | nul
                 Key: key,
                 Body: buffer,
                 ContentType: contentType,
-                ACL: "public-read",
             })
         );
 
@@ -88,7 +87,6 @@ export async function uploadImageFromBase64(base64Data: string, mimeType: string
                 Key: key,
                 Body: buffer,
                 ContentType: mimeType,
-                ACL: "public-read",
             })
         );
 
