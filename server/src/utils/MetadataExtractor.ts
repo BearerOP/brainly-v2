@@ -77,7 +77,7 @@ Return a valid JSON object with exactly these fields:
 
 ### Identity
 - title: Best title for this resource (string, never null)
-- source_type: One of: article | blog | video | image | social_post | tweet | reel | pdf | note | product | research_paper | news | podcast | other
+- source_type: One of: article | blog | video | image | social_post | tweet | reel | pdf | note | product | research_paper | news | podcast | portfolio | other
 - platform: Platform or site name (e.g. YouTube, X, Medium, Reddit, Upload, unknown)
 - author: Author or creator name (string or null)
 - published_date: Publication date in YYYY-MM-DD format if detectable (or null)

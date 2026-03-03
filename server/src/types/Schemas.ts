@@ -7,13 +7,13 @@ const tagSchema = z.object({
         .string()
         .toLowerCase()
         .trim()
-        .max(24, { message: "Max length of tag is 24" })
+        .max(30, { message: "Max length of tag is 30" })
         .transform((v) => v.replace(/[&\/\\#, +()$~%.'":*?<>{}]/g, '-'))
 });
 
 export const AuthSchema = z.object({
     username: z.string().min(3, { message: "Username has to be minimum of 3 letters" })
-        .max(10, { message: "Username has to be maximum of 10 letters" }),
+        .max(100, { message: "Username has to be maximum of 100 letters" }),
     password: z.string().min(8, { message: "Password has to be minimum of 8 letters" })
         .max(20, { message: "Password has   to be maximum of 20 letters" })
 })
