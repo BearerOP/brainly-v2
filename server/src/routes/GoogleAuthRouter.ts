@@ -47,19 +47,30 @@ GoogleAuthRouter.get("/callback/google", (req, res) => {
             }
 
             const { sub: googleId, email, name } = payload;
-
             let user = await UsersModel.findOne({ googleId });
 
             if (!user) {
                 // Check if user exists with same email but different login method
                 user = await UsersModel.findOne({ email });
                 if (user) {
+                    console.log(`[GoogleAuth] Linking Google account to existing user: ${email}`);
                     user.googleId = googleId;
                     if (tokens.refresh_token) user.refreshToken = tokens.refresh_token;
                     await user.save();
                 } else {
+                    console.log(`[GoogleAuth] Creating new user for: ${email}`);
+                    let baseUsername = name || email?.split('@')[0] || "user";
+                    let username = baseUsername;
+
+                    // Check if username is already taken
+                    const existingUsername = await UsersModel.findOne({ username });
+                    if (existingUsername) {
+                        // Append unique suffix if taken
+                        username = `${baseUsername}_${Math.random().toString(36).substring(2, 7)}`;
+                    }
+
                     user = await UsersModel.create({
-                        username: name || email?.split('@')[0],
+                        username,
                         email,
                         googleId,
                         refreshToken: tokens.refresh_token

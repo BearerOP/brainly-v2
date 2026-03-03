@@ -29,6 +29,7 @@ UserRouter.post("/register", async (req: Request, res: Response) => {
         username: data.username,
         password: hashPass,
       });
+      console.log(`[Register] New user created: ${data.username}`);
       res.status(200).json({
         message: "User Created in DB",
       });
@@ -86,12 +87,14 @@ UserRouter.post("/login", async (req: Request, res: Response) => {
           });
           return;
         } else {
+          console.warn(`[Login] Password mismatch for user: ${data.username}`);
           res.status(401).json({
             message: "Password incorrect, please try again",
           });
           return;
         }
       } else {
+        console.warn(`[Login] User not found: ${data.username}`);
         res.status(404).json({
           message: "User doesn't exist, please sign up",
         });
